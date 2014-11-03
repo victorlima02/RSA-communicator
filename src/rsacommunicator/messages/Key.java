@@ -36,8 +36,8 @@ import crypto.util.BitBuffer;
  */
 public class Key extends Message<BitBuffer> {
 
-    public Key(BitBuffer message, String destination) {
-        super(Type.KEY, message, destination);
+    public Key(String source,String destination,BitBuffer message) {
+        super(source,destination,Type.KEY, message);
     }
 
 }

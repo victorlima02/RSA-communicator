@@ -31,11 +31,16 @@ import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import rsacommunicator.MessageReader;
+import rsacommunicator.messages.Key;
 import rsacommunicator.messages.Login;
+import rsacommunicator.messages.Logout;
 import rsacommunicator.messages.Message;
+import rsacommunicator.messages.PublicKey;
 
 /**
  * The RSA communicator client.
@@ -56,7 +61,7 @@ public class RSAClient implements PropertyChangeListener {
 
     private final PropertyChangeListener messageProcessor;
 
-    private final Set<User> users = new TreeSet<>();
+    private final Map<String, User> users = new TreeMap<>();
 
     /**
      * Creates a RSAClient that forwards messages to the specified message
@@ -127,24 +132,56 @@ public class RSAClient implements PropertyChangeListener {
                 processLoginMessage((Login) evt.getNewValue());
         }
     }
-    
-    /**
-     * Process a LOGIN message.
-     * 
-     * @since 1.0
-     * @param msg 
-     */
-    public void processLoginMessage(Login msg){
-        users.add(new User(msg.getMessage()));
-    }
 
     /**
      * Return the current list of users.
-     * 
+     *
      * @since 1.0
      * @return users connected to the server.
      */
-    public Set<User> getUsers() {
+    public Map<String, User> getUsers() {
         return users;
     }
+
+    /**
+     * Process a LOGIN message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void processLoginMessage(Login msg) {
+        User newUser = new User(msg.getMessage());
+        users.put(newUser.getName(), newUser);
+    }
+
+    /**
+     * Process a LOGOUT message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void processLogoutMessage(Logout msg) {
+        users.remove(msg.getMessage());
+    }
+    
+    /**
+     * Process a Key message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void processKeyMessage(Key msg) {
+        users.get(msg.getSource()).setKey(msg.getMessage());
+    }
+    
+    /**
+     * Process a PUB_KEY message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void processPublicKeyMessage(PublicKey msg) {
+        users.get(msg.getSource()).setPublicKey(msg.getMessage());
+    }
+    
 }

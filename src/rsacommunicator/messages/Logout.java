@@ -28,14 +28,14 @@ package rsacommunicator.messages;
 
 /**
  * Request to logout.
- * 
+ *
  * @author Victor de Lima Soares
  * @version 1.0
  */
 public class Logout extends Message<String> {
 
     public Logout(String userName) {
-        super(Type.LOGIN, userName.trim(), Destination.SERVER.name());
+        super(userName.trim(), Destination.SERVER.name(), Type.LOGIN, userName.trim());
     }
 
 }

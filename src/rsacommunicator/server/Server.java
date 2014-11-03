@@ -97,6 +97,14 @@ public class Server implements Runnable, PropertyChangeListener {
 
     }
 
+    /**
+     * Login a user to the server.
+     * 
+     * @since 1.0
+     * @param user
+     * @param msg
+     * @throws IOException 
+     */
     public void login(User user, Login msg) throws IOException {
         synchronized (user) {
             String userName = msg.getMessage();

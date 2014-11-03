@@ -44,5 +44,25 @@ public class User {
     public User(String name) {
         this.name = name;
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setKey(BitBuffer key) {
+        this.key = key;
+    }
+
+    public BitBuffer getKey() {
+        return key;
+    }
+
+    public BigInteger getPublicKey() {
+        return publicKey;
+    }
+
+    public void setPublicKey(BigInteger publicKey) {
+        this.publicKey = publicKey;
+    }
     
 }

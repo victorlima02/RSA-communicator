@@ -34,7 +34,7 @@ import java.io.Serializable;
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class Message<M extends Serializable> implements Serializable {
+public abstract class Message<M extends Serializable> implements Serializable {
 
     /**
      * Message version in use.
@@ -43,6 +43,13 @@ public class Message<M extends Serializable> implements Serializable {
      */
     public static final long serialVersionUID = 1L;
 
+    /**
+     * A string identifying the source of this message.
+     *
+     * @since 1.0
+     */
+    private final String source;
+    
     /**
      * A string identifying the destination for this message.
      *
@@ -71,13 +78,15 @@ public class Message<M extends Serializable> implements Serializable {
     /**
      * Creates a new message.
      *
+     * @param source
+     * @param destination
      * @param type
      * @param message
-     * @param destination
      */
-    public Message(Type type, M message, String destination) {
+    public Message(String source,String destination,Type type, M message) {
         this.type = type;
         this.message = message;
+        this.source = source;
         this.destination = destination.trim();
     }
 
@@ -118,6 +127,16 @@ public class Message<M extends Serializable> implements Serializable {
      */
     public String getDestination() {
         return destination;
+    }
+
+    /**
+     * Who sent the message.
+     *
+     * @since 1.0
+     * @return Source.
+     */
+    public String getSource() {
+        return source;
     }
 
 }

@@ -36,8 +36,8 @@ import java.math.BigInteger;
  */
 public class RSAMessage extends Message<BigInteger> {
 
-    public RSAMessage(BigInteger message, String destination) {
-        super(Type.RSA_MSG, message, destination);
+    public RSAMessage(String source, String destination, BigInteger message) {
+        super(source, destination, Type.RSA_MSG, message);
     }
 
 }

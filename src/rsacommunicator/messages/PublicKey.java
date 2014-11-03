@@ -30,14 +30,14 @@ import java.math.BigInteger;
 
 /**
  * Update Public key (for RSA).
- * 
+ *
  * @author Victor de Lima Soares
  * @version 1.0
  */
 public class PublicKey extends Message<BigInteger> {
 
-    public PublicKey(BigInteger key) {
-        super(Type.PUB_KEY, key, Destination.SERVER.name());
+    public PublicKey(String source, String destination, BigInteger key) {
+        super(source, Destination.SERVER.name(), Type.PUB_KEY, key);
     }
 
 }

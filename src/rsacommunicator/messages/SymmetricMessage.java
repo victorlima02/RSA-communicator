@@ -36,8 +36,8 @@ import crypto.util.BitBuffer;
  */
 public class SymmetricMessage extends Message<BitBuffer> {
 
-    public SymmetricMessage(BitBuffer message, String destination) {
-        super(Type.PUB_KEY, message, destination);
+    public SymmetricMessage(String source,String destination,BitBuffer message) {
+        super(source,destination,Type.PUB_KEY, message);
     }
 
 }

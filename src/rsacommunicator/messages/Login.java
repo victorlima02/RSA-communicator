@@ -28,14 +28,14 @@ package rsacommunicator.messages;
 
 /**
  * Request to login.
- * 
+ *
  * @author Victor de Lima Soares
  * @version 1.0
  */
 public class Login extends Message<String> {
 
     public Login(String userName) {
-        super(Type.LOGIN, userName.trim(), Destination.SERVER.name());
+        super(userName.trim(), Destination.SERVER.name(), Type.LOGIN, userName.trim());
     }
 
 }
