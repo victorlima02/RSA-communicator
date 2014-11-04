@@ -38,7 +38,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import rsacommunicator.server.User;
+import rsacommunicator.server.Client;
 
 /**
  * Message reader.
@@ -47,11 +47,11 @@ import rsacommunicator.server.User;
  * @version 1.0
  */
 public class MessageReader implements Runnable, AutoCloseable {
-
+    
     private final BlockingQueue<Message> messages = new LinkedBlockingQueue();
     private final ObjectInputStream source;
     private final PropertyChangeSupport pcs;
-    private final User responsable;
+    private final Client responsable;
 
     /**
      * Flag to request the threads to stop and die.
@@ -72,7 +72,7 @@ public class MessageReader implements Runnable, AutoCloseable {
      * @param source
      * @throws java.io.IOException
      */
-    public MessageReader(User responsable, InputStream source) throws IOException {
+    public MessageReader(Client responsable, InputStream source) throws IOException {
         this.source = new ObjectInputStream(new BufferedInputStream(source));
         this.responsable = responsable;
         pcs = new PropertyChangeSupport(responsable);
@@ -130,7 +130,13 @@ public class MessageReader implements Runnable, AutoCloseable {
             try {
                 readInput();
             } catch (IOException ex) {
+                try {
+                    close();
+                } catch (Exception ex1) {
+                    Logger.getLogger(MessageReader.class.getName()).log(Level.SEVERE, null, ex1);
+                }
                 Logger.getLogger(MessageReader.class.getName()).log(Level.SEVERE, null, ex);
+                throw new RuntimeException("Input failed.", ex);
             }
         }
     }
@@ -146,7 +152,7 @@ public class MessageReader implements Runnable, AutoCloseable {
      */
     private void readInput() throws IOException {
         try {
-
+            
             Message message = (Message) source.readObject();
             messages.put(message);
             setLastMessage(LocalDateTime.now());
@@ -167,26 +173,26 @@ public class MessageReader implements Runnable, AutoCloseable {
      */
     public void startsEmissary() {
         Runnable emissary = new Runnable() {
-
+            
             @Override
             public void run() {
                 while (true) {
                     try {
-
+                        
                         Message message = messages.take();
                         pcs.firePropertyChange(message.getType().name(), null, message);
-
+                        
                     } catch (InterruptedException ex) {
                         Logger.getLogger(MessageReader.class.getName()).log(Level.SEVERE, null, ex);
                     }
-
+                    
                     if (CLOSING == true && messages.isEmpty()) {
                         break;
                     }
                 }
             }
         };
-
+        
         Thread emissaryThread = new Thread(emissary);
         emissaryThread.start();
     }
@@ -209,7 +215,9 @@ public class MessageReader implements Runnable, AutoCloseable {
      */
     private void setLastMessage(LocalDateTime lastMessage) {
         this.lastMessage = lastMessage;
-        if(responsable != null) responsable.getUserColeCollector().resetInnativeTimer();
+        if (responsable != null) {
+            responsable.getUserColeCollector().resetInnativeTimer();
+        }
     }
 
     /**
@@ -243,5 +251,5 @@ public class MessageReader implements Runnable, AutoCloseable {
         source.close();
         CLOSING = true;
     }
-
+    
 }

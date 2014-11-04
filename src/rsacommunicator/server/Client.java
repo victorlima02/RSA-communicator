@@ -31,11 +31,13 @@ import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.net.Socket;
 import java.time.LocalDateTime;
+import javafx.util.Pair;
 import rsacommunicator.MessageReader;
+import rsacommunicator.client.User;
 import rsacommunicator.messages.Message;
 
 /**
- * Communicator User - server side.
+ * Communicator Client - server side.
  * 
  * <p>
  * This class manages all functionality attributed to users on the server side.
@@ -57,16 +59,16 @@ import rsacommunicator.messages.Message;
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class User implements Comparable<User>, AutoCloseable {
+public class Client implements Comparable<Client>, AutoCloseable {
 
     private String name;
-    private BigInteger publicKey;
+    private Pair<BigInteger, BigInteger> publicKeyPair;
 
     private final Socket socket;
     private final ObjectOutputStream out;
     private final MessageReader receiver;
 
-    private final Server server;
+    private final RSAServer server;
 
     /**
      * Field to control time limits.
@@ -89,7 +91,7 @@ public class User implements Comparable<User>, AutoCloseable {
      * @param socket
      * @throws IOException
      */
-    public User(Server server, Socket socket) throws IOException {
+    public Client(RSAServer server, Socket socket) throws IOException {
         this.socket = socket;
         out = new ObjectOutputStream(socket.getOutputStream());
         this.server = server;
@@ -117,7 +119,7 @@ public class User implements Comparable<User>, AutoCloseable {
      * Get user's name.
      *
      * @since 1.0
-     * @return User's name.
+     * @return Client's name.
      */
     public String getName() {
         return name;
@@ -137,10 +139,10 @@ public class User implements Comparable<User>, AutoCloseable {
      * Get RSA public key.
      *
      * @since 1.0
-     * @return User's public key.
+     * @return Client's public key.
      */
-    public BigInteger getPublicKey() {
-        return publicKey;
+    public Pair<BigInteger, BigInteger> getPublicKeyPair() {
+        return publicKeyPair;
     }
 
     /**
@@ -149,8 +151,8 @@ public class User implements Comparable<User>, AutoCloseable {
      * @since 1.0
      * @param publicKey New public key.
      */
-    public void setPublicKey(BigInteger publicKey) {
-        this.publicKey = publicKey;
+    public void setPublicKeyPair(Pair<BigInteger, BigInteger> publicKeyPair) {
+        this.publicKeyPair = publicKeyPair;
     }
 
     /**
@@ -216,7 +218,7 @@ public class User implements Comparable<User>, AutoCloseable {
      * Get the time controller for this user.
      *
      * @since 1.0
-     * @return User collector.
+     * @return Client collector.
      * @see UserCollector
      */
     public UserCollector getUserColeCollector() {
@@ -224,7 +226,7 @@ public class User implements Comparable<User>, AutoCloseable {
     }
 
     @Override
-    public int compareTo(User o) {
+    public int compareTo(Client o) {
         if (o == this) {
             return 0;
         }
@@ -238,13 +240,18 @@ public class User implements Comparable<User>, AutoCloseable {
 
     @Override
     public boolean equals(Object obj) {
-        if (!(obj instanceof User)) {
+        if (!(obj instanceof Client)) {
             return false;
         }
         if (obj == this) {
             return true;
         }
-        return this.name.equals(((User) obj).name);
+        return this.name.equals(((Client) obj).name);
     }
 
+    public User toClientUser(){
+        User clientUser = new rsacommunicator.client.User(name);
+        clientUser.setPublicKey(publicKeyPair);
+        return clientUser;
+    }
 }

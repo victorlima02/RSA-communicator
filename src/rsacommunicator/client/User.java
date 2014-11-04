@@ -26,43 +26,83 @@
  */
 package rsacommunicator.client;
 
-import crypto.util.BitBuffer;
+import java.io.Serializable;
 import java.math.BigInteger;
+import javafx.util.Pair;
 
 /**
  * Communicator User - client side.
- * 
+ *
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class User {
+public class User implements Serializable{
 
     private final String name;
-    private BigInteger publicKey;
-    private BitBuffer key;
+    private Pair<BigInteger, BigInteger> publicKeyPair;
+    private byte[] key;
 
     public User(String name) {
         this.name = name;
     }
 
+    /**
+     * Gets user name.
+     *
+     * <p>
+     * The user name is also a unique identification for users and it is used
+     * for routing.
+     * </p>
+     *
+     * @since 1.0
+     * @return User name.
+     */
     public String getName() {
         return name;
     }
 
-    public void setKey(BitBuffer key) {
+    /**
+     * Sets the synchronized key (DES).
+     *
+     * @since 1.0
+     * @param key Synchronized algorithm key - session key.
+     */
+    public void setKey(byte[] key) {
         this.key = key;
     }
 
-    public BitBuffer getKey() {
+    /**
+     * Gets the synchronized key (DES).
+     *
+     * @since 1.0
+     * @return key Synchronized algorithm key - session key.
+     */
+    public byte[] getKey() {
         return key;
     }
 
-    public BigInteger getPublicKey() {
-        return publicKey;
+    /**
+     * Return the (n,public key) or (n,e) public key pair.
+     *
+     * @since 1.0
+     * @return (n,e)
+     */
+    public Pair<BigInteger, BigInteger> getPublicKeyPair() {
+        return publicKeyPair;
     }
 
-    public void setPublicKey(BigInteger publicKey) {
-        this.publicKey = publicKey;
+    /**
+     * Attributes a new (n,public key) or (n,e) public key pair to this user.
+     *
+     * @since 1.0
+     * @param publicKeyPair RSA pair (n,e)
+     */
+    public void setPublicKey(Pair<BigInteger, BigInteger> publicKeyPair) {
+        this.publicKeyPair = publicKeyPair;
     }
-    
+
+    @Override
+    public String toString() {
+        return getName();
+    }
 }

@@ -26,21 +26,35 @@
  */
 package rsacommunicator.client;
 
+import crypto.ciphers.Cipher;
+import crypto.ciphers.asy.rsa.RSA;
+import crypto.ciphers.block.feistel.des.DES;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectOutputStream;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import rsacommunicator.MessageReader;
+import rsacommunicator.messages.Destination;
 import rsacommunicator.messages.Key;
 import rsacommunicator.messages.Login;
 import rsacommunicator.messages.Logout;
 import rsacommunicator.messages.Message;
+import rsacommunicator.messages.PlainMessage;
 import rsacommunicator.messages.PublicKey;
+import rsacommunicator.messages.RSAMessage;
+import rsacommunicator.messages.SymmetricMessage;
+import rsacommunicator.messages.UserList;
+import rsacommunicator.server.RSAServer;
 
 /**
  * The RSA communicator client.
@@ -50,30 +64,107 @@ import rsacommunicator.messages.PublicKey;
  */
 public class RSAClient implements PropertyChangeListener {
 
-    private String name;
-
-    private Socket socket;
-    private ObjectOutputStream out;
-    private MessageReader receiver;
-
-    private final String IP = "127.0.0.1";
-    private final Integer PORT = 4931;
-
-    private final PropertyChangeListener messageProcessor;
-
-    private final Map<String, User> users = new TreeMap<>();
-
     /**
-     * Creates a RSAClient that forwards messages to the specified message
-     * processor.
+     * User name.
      *
      * @since 1.0
-     * @param messageProcessor
+     */
+    private String name;
+
+    /**
+     * RSA field for encryption/decryption using RSA algorithm.
+     *
+     * @since 1.0
+     * @see RSA#RSA(int)
+     */
+    private final RSA rsa = new RSA(512);
+
+    /**
+     * Symmetric Cipher to be used for encryption/decryption operations - with
+     * DES.
+     *
+     * @since 1.0
+     * @see DES#DES()
+     */
+    private static final Cipher des = new DES();
+
+    /**
+     * Communication channel.
+     *
+     * @since 1.0
+     */
+    private Socket socket;
+
+    /**
+     * Communication channel: output stream.
+     *
+     * @since 1.0
+     */
+    private ObjectOutputStream out;
+
+    /**
+     * Communication channel: message receiver.
+     *
+     * @since 1.0
+     */
+    private MessageReader receiver;
+
+    /**
+     * Network configuration: Server's IP
+     *
+     * @since 1.0
+     */
+    private final String IP = "127.0.0.1";
+
+    /**
+     * Network configuration: Server's TCP port
+     *
+     * @since 1.0
+     */
+    private final Integer PORT = 4931;
+
+    /**
+     * Map with all known users.
+     *
+     * @since 1.0
+     */
+    private final Map<String, User> users = new TreeMap<>();
+    
+    /**
+     * User for broadcasts.
+     * 
+     * @since 1.0
+     */
+    public final User BROADCAST = new User(Destination.BROADCAST.name());
+    
+    /**
+     * User for server communication.
+     * 
+     * @since 1.0
+     */
+    public final User SERVER = new User(Destination.SERVER.name());
+
+    /**
+     * Events notifier.
+     *
+     * <p>
+     * This field will notify subscribers about events that might interest them
+     * as clients, especially interfaces.
+     * </p>
+     *
+     * @since 1.0
+     */
+    private final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
+
+    /**
+     * Creates a RSAClient that forwards messages to the specified interface.
+     *
+     * @since 1.0
+     * @param face
      * @throws java.io.IOException
      */
-    public RSAClient(PropertyChangeListener messageProcessor) throws IOException {
-        this.messageProcessor = messageProcessor;
-        setUpNetwork();
+    public RSAClient(PropertyChangeListener face) throws IOException {
+        this.pcs.addPropertyChangeListener(face);
     }
 
     /**
@@ -82,11 +173,11 @@ public class RSAClient implements PropertyChangeListener {
      * @since 1.0
      * @throws IOException
      */
-    private void setUpNetwork() throws IOException {
+    public void connect() throws IOException {
         socket = new Socket(IP, PORT);
         out = new ObjectOutputStream(socket.getOutputStream());
         receiver = new MessageReader(socket.getInputStream());
-        receiver.addPropertyChangeListener(messageProcessor);
+        receiver.addPropertyChangeListener(this);
         receiver.startReader();
     }
 
@@ -101,6 +192,7 @@ public class RSAClient implements PropertyChangeListener {
         Message login = new Login(userName);
         sendMessage(login);
         this.name = userName;
+        sendPublicKeyMessage();
     }
 
     /**
@@ -125,12 +217,54 @@ public class RSAClient implements PropertyChangeListener {
         return name;
     }
 
+    /**
+     * Message processor method.
+     * <p>
+     * Method called when a event is fired and the client is a subscriber.
+     * </p>
+     * <p>
+     * The message receiver will communicate with the client through events.
+     * </p>
+     *
+     * @since 1.0
+     * @param evt Property change event.
+     */
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
-        switch (rsacommunicator.messages.Type.valueOf(evt.getPropertyName())) {
+        Message msg = (Message) evt.getNewValue();
+
+        switch (msg.getType()) {
             case LOGIN:
-                processLoginMessage((Login) evt.getNewValue());
+                process((Login) msg);
+                break;
+            case LOGOUT:
+                process((Logout) msg);
+                break;
+            case USER_LIST:
+                process((UserList) msg);
+                break;
+            case KEY:
+                process((Key) msg);
+                break;
+            case PLAIN_MSG:
+                process((PlainMessage) msg);
+                break;
+            case PUB_KEY:
+                process((PublicKey) msg);
+                break;
+            case RSA_MSG:
+                process((RSAMessage) msg);
+                break;
+            case SYM_MSG: {
+                try {
+                    process((SymmetricMessage) msg);
+                } catch (IOException ex) {
+                    Logger.getLogger(RSAClient.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            break;
         }
+
     }
 
     /**
@@ -149,9 +283,10 @@ public class RSAClient implements PropertyChangeListener {
      * @since 1.0
      * @param msg
      */
-    public void processLoginMessage(Login msg) {
+    public void process(Login msg) {
         User newUser = new User(msg.getMessage());
         users.put(newUser.getName(), newUser);
+        pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
     }
 
     /**
@@ -160,28 +295,167 @@ public class RSAClient implements PropertyChangeListener {
      * @since 1.0
      * @param msg
      */
-    public void processLogoutMessage(Logout msg) {
+    public void process(Logout msg) {
         users.remove(msg.getMessage());
+        pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
     }
-    
+
+    /**
+     * Process a USER_LIST message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void process(UserList msg) {
+        Map userList = msg.getMessage();
+        users.clear();
+        users.putAll(userList);
+        pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
+    }
+
     /**
      * Process a Key message.
      *
      * @since 1.0
      * @param msg
      */
-    public void processKeyMessage(Key msg) {
+    public void process(Key msg) {
         users.get(msg.getSource()).setKey(msg.getMessage());
+        pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
     }
-    
+
     /**
      * Process a PUB_KEY message.
      *
      * @since 1.0
      * @param msg
      */
-    public void processPublicKeyMessage(PublicKey msg) {
+    public void process(PublicKey msg) {
         users.get(msg.getSource()).setPublicKey(msg.getMessage());
+        pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
     }
-    
+
+    /**
+     * Send a PUB_KEY message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void sendPublicKeyMessage() throws IOException {
+        sendMessage(new PublicKey(name, Destination.SERVER.name(), rsa.getPublicKeyPair()));
+    }
+
+    /**
+     * Process a PLAIN_MSG message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void process(PlainMessage msg) {
+        pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, msg);
+    }
+
+    /**
+     * Process a RSA_MSG message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void process(RSAMessage msg) {
+
+        BigInteger msgEncrypted = msg.getMessage();
+
+        String plainText = rsa.decrypt(msgEncrypted);
+
+        pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, new PlainMessage(msg.getSource(), msg.getDestination(), plainText));
+    }
+
+    /**
+     * Process a SYM_MSG message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void process(SymmetricMessage msg) throws IOException {
+
+        User source = users.get(msg.getSource());
+        String plainText;
+
+        try (InputStream msgEncrypted = new ByteArrayInputStream(msg.getMessage());
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+
+            des.decrypt(msgEncrypted, source.getKey(), output);
+            plainText = output.toString(RSAServer.CHARSET.name());
+
+        }
+
+        pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, new PlainMessage(msg.getSource(), msg.getDestination(), plainText));
+    }
+
+    /**
+     * Sends a RSA_MSG message.
+     *
+     * @since 1.0
+     * @param destine
+     * @param message
+     * @throws java.io.IOException
+     */
+    public void sendRSAMessage(String destine, String message) throws IOException {
+        PlainMessage msg = new PlainMessage(name, destine, message);
+        sendRSAMessage(msg);
+    }
+
+    /**
+     * Send a RSA_MSG message.
+     *
+     * @since 1.0
+     * @param msg
+     * @throws java.io.IOException
+     */
+    public void sendRSAMessage(PlainMessage msg) throws IOException {
+
+        User source = users.get(msg.getSource());
+
+        String plainText = msg.getMessage();
+
+        BigInteger cipherText = RSA.encrypt(source.getPublicKeyPair(), plainText);
+
+        sendMessage(new RSAMessage(name, msg.getSource(), cipherText));
+        pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, new PlainMessage(msg.getSource(), msg.getDestination(), plainText));
+    }
+
+    /**
+     * Sends a SYM_MSG message.
+     *
+     * @since 1.0
+     * @param destine
+     * @param message
+     * @throws java.io.IOException
+     */
+    public void sendSYMMessage(String destine, String message) throws IOException {
+        PlainMessage msg = new PlainMessage(name, destine, message);
+        sendSYMMessage(msg);
+    }
+
+    /**
+     * Send a SYM_MSG message.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    public void sendSYMMessage(PlainMessage msg) throws IOException {
+
+        User source = users.get(msg.getSource());
+        byte[] cipherText;
+
+        try (InputStream msgEncrypted = new ByteArrayInputStream(msg.getMessage().getBytes(RSAServer.CHARSET));
+                ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+
+            des.encrypt(msgEncrypted, source.getKey(), output);
+            cipherText = output.toByteArray();
+        }
+        sendMessage(new SymmetricMessage(name, msg.getSource(), cipherText));
+        pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, msg);
+    }
+
 }

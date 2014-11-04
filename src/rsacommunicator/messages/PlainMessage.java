@@ -24,21 +24,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
+
 package rsacommunicator.messages;
 
-import java.math.BigInteger;
-import javafx.util.Pair;
-
 /**
- * Update Public key (for RSA).
  *
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class PublicKey extends Message<Pair<BigInteger, BigInteger>> {
+public class PlainMessage extends Message<String>{
 
-    public PublicKey(String source, String destination, Pair<BigInteger, BigInteger> key) {
-        super(source, Destination.SERVER.name(), Type.PUB_KEY, key);
+    public PlainMessage(String source, String destination, String message) {
+        super(source, destination, Type.PLAIN_MSG, message);
     }
 
 }

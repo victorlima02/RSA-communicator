@@ -34,7 +34,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * User collector: to clean unused users after timeout.
+ * Client collector: to clean unused users after timeout.
  *
  * <p>
  * This class control the time limits for every user. Including, how long the
@@ -52,7 +52,7 @@ public class UserCollector {
      *
      * @since 1.0
      */
-    private final User user;
+    private final Client user;
 
     /**
      * Task scheduler.
@@ -84,7 +84,7 @@ public class UserCollector {
      * @since 1.0
      * @param user
      */
-    public UserCollector(User user) {
+    public UserCollector(Client user) {
         this.user = user;
         futureDelete = schedule.schedule(DeleteNotConnected, TIME_TO_LOGIN, TimeUnit.SECONDS);
     }

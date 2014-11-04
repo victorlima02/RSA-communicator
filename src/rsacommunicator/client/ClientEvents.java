@@ -24,77 +24,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package rsacommunicator.messages;
+package rsacommunicator.client;
 
 /**
- * Type of messages that can be used on the RSA communicator.
+ * Events that can be fired for a RSA client.
  *
  * <p>
- * This enumeration dictates the communication protocol by defining which types
- * of message are available.
+ * Those events make it possible to notify interfaces and, other interested
+ * subscribers, about updates and actions that are being taken on the RSA
+ * client; e.i., new message or new user.
  * </p>
  *
  * @author Victor de Lima Soares
  * @since 1.0
  */
-public enum Type {
-
+public enum ClientEvents {
     /**
-     * Request to login.
-     *
+     * This event indicates that some user information has changed.
      * @since 1.0
      */
-    LOGIN(Login.class),
+    USER_UPDATE,
     /**
-     * Request to logout.
-     *
+     * This event indicates that a new message have arrived.
      * @since 1.0
      */
-    LOGOUT(Logout.class),
-    /**
-     * Map with all information about users on the source.
-     * @serial 1.0
-     */
-    USER_LIST(UserList.class),
-    /**
-     * Update Public key (for RSA).
-     *
-     * @since 1.0
-     */
-    PUB_KEY(PublicKey.class),
-    /**
-     * Update symmetric key (session key with other user, for DES).
-     *
-     * @since 1.0
-     */
-    KEY(Key.class),
-    /**
-     * Message encrypted with DES - using session keys.
-     *
-     * @since 1.0
-     */
-    SYM_MSG(SymmetricMessage.class),
-    /**
-     * Message encrypted with RSA - using public keys.
-     *
-     * @since 1.0
-     */
-    RSA_MSG(RSAMessage.class),
-    /**
-     * Message not encrypted.
-     *
-     * @since 1.0
-     */
-    PLAIN_MSG(PlainMessage.class);
-    
-    private Class messageClass;
-    
-    private Type(Class messageClass) { 
-        
-    }
-
-    public Class getMessageClass() {
-        return messageClass;
-    }
-    
-};
+    NEW_MESSAGE
+}

@@ -26,18 +26,16 @@
  */
 package rsacommunicator.messages;
 
-import crypto.util.BitBuffer;
-
 /**
  * Update symmetric key (session key with other user, for DES).
  *
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class Key extends Message<BitBuffer> {
+public class Key extends Message<byte[]> {
 
-    public Key(String source,String destination,BitBuffer message) {
-        super(source,destination,Type.KEY, message);
+    public Key(String source, String destination, byte[] message) {
+        super(source, destination, Type.KEY, message);
     }
 
 }

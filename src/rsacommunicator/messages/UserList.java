@@ -26,19 +26,19 @@
  */
 package rsacommunicator.messages;
 
-import java.math.BigInteger;
-import javafx.util.Pair;
+import java.util.TreeMap;
+import rsacommunicator.client.User;
 
 /**
- * Update Public key (for RSA).
+ * A user list in the server.
  *
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class PublicKey extends Message<Pair<BigInteger, BigInteger>> {
+public class UserList extends Message<TreeMap> {
 
-    public PublicKey(String source, String destination, Pair<BigInteger, BigInteger> key) {
-        super(source, Destination.SERVER.name(), Type.PUB_KEY, key);
+    public UserList(String source, String destination, Type type, TreeMap<String, User> message) {
+        super(source, destination, Type.USER_LIST, message);
     }
 
 }

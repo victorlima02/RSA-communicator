@@ -88,6 +88,9 @@
                     </Property>
                     <Property name="requestFocusEnabled" type="boolean" value="false"/>
                   </Properties>
+                  <Events>
+                    <EventHandler event="valueChanged" listener="javax.swing.event.TreeSelectionListener" parameters="javax.swing.event.TreeSelectionEvent" handler="usersValueChanged"/>
+                  </Events>
                 </Component>
               </SubComponents>
             </Container>

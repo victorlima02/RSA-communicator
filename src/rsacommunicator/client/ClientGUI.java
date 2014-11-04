@@ -29,11 +29,12 @@ package rsacommunicator.client;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
+import java.util.Map;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import rsacommunicator.messages.Login;
 
 /**
  *
@@ -54,6 +55,13 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
         initComponents();
         client = new RSAClient(this);
     }
+
+    /**
+     * Destination for the next message.
+     *
+     * @since 1.0
+     */
+    private User destination;
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -101,6 +109,11 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
         users.setName(""); // NOI18N
         users.setPreferredSize(new java.awt.Dimension(180, 350));
         users.setRequestFocusEnabled(false);
+        users.addTreeSelectionListener(new javax.swing.event.TreeSelectionListener() {
+            public void valueChanged(javax.swing.event.TreeSelectionEvent evt) {
+                usersValueChanged(evt);
+            }
+        });
         usersPane.setViewportView(users);
 
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -230,7 +243,9 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
 
     private void loginButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loginButtonActionPerformed
         try {
+            client.connect();
             client.login(userTextField.getText());
+            enableMessages(true);
         } catch (IOException ex) {
             Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -239,6 +254,36 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
     private void userTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_userTextFieldActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_userTextFieldActionPerformed
+
+    private void usersValueChanged(javax.swing.event.TreeSelectionEvent evt) {//GEN-FIRST:event_usersValueChanged
+        DefaultMutableTreeNode node = (DefaultMutableTreeNode) users.getLastSelectedPathComponent();
+
+        if (node == null) //Nothing is selected.  
+        {
+            sendButton.setEnabled(false);
+            sendButton.setText("None");
+            sendButton.setToolTipText("No user selected.");
+            destination = null;
+            return;
+        }
+        
+        if (node.isLeaf()) {
+            node = (DefaultMutableTreeNode) node.getParent();
+        }
+
+        if (node == (DefaultMutableTreeNode) users.getModel().getRoot()) {
+            sendButton.setEnabled(true);
+            sendButton.setText("Broadcast");
+            sendButton.setToolTipText("Broadcast a plain text message.");
+            destination = client.BROADCAST;
+
+        } else {
+            sendButton.setEnabled(true);
+            destination = (User) node.getUserObject();
+            sendButton.setText(destination.getName());
+            sendButton.setToolTipText("Send message to: " + destination.getName());
+        }
+    }//GEN-LAST:event_usersValueChanged
 
     /**
      * @param args the command line arguments
@@ -298,29 +343,56 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
     private javax.swing.JScrollPane usersPane;
     // End of variables declaration//GEN-END:variables
 
+    /**
+     * Events processor method.
+     * <p>
+     * Method called when a event is fired from the RSA client.
+     * </p>
+     * <p>
+     * The RSA client will communicate with the GUI through events.
+     * </p>
+     *
+     * @since 1.0
+     * @param evt Property change event.
+     */
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
-        switch (rsacommunicator.messages.Type.valueOf(evt.getPropertyName())) {
-            case LOGIN:
-                login((Login) evt.getNewValue());
+        switch (rsacommunicator.client.ClientEvents.valueOf(evt.getPropertyName())) {
+            case USER_UPDATE:
+                updateUsers((Map<String, User>) evt.getNewValue());
         }
     }
 
     /**
-     * Process login messages and updates the user tree view.
-     * 
+     * Updates the user tree view.
+     *
      * @since 1.0
-     * @param msg 
+     * @param msg
      */
-    private void login(Login msg) {
+    private void updateUsers(Map<String, User> usersMap) {
+
         DefaultTreeModel model = (DefaultTreeModel) users.getModel();
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
-        model.insertNodeInto(new DefaultMutableTreeNode(msg.getMessage()), root, root.getChildCount());
-        
-        //Confirms login
-        if(msg.getMessage().equals(client.getName())){
-            enableMessages(true);
-        }
+
+        root.removeAllChildren(); //this removes all nodes
+        model.reload(); //this notifies the listeners and changes the GUI
+
+        usersMap.values().stream().forEach(new Consumer<User>() {
+
+            public void accept(User user) {
+
+                DefaultMutableTreeNode userNode = new DefaultMutableTreeNode(user);
+                model.insertNodeInto(userNode, root, root.getChildCount());
+
+                if (user.getKey() != null) {
+                    model.insertNodeInto(new DefaultMutableTreeNode("Sym Key"), userNode, 0);
+                }
+                if (user.getPublicKeyPair() != null) {
+                    model.insertNodeInto(new DefaultMutableTreeNode("Pub Key"), userNode, Math.min(1, userNode.getChildCount()));
+                }
+            }
+
+        });
     }
 
     public void newMessage(String message) {
