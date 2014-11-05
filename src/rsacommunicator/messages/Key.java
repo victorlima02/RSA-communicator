@@ -26,15 +26,17 @@
  */
 package rsacommunicator.messages;
 
+import java.math.BigInteger;
+
 /**
  * Update symmetric key (session key with other user, for DES).
  *
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class Key extends Message<byte[]> {
+public class Key extends Message<BigInteger> {
 
-    public Key(String source, String destination, byte[] message) {
+    public Key(String source, String destination, BigInteger message) {
         super(source, destination, Type.KEY, message);
     }
 

@@ -48,5 +48,10 @@ public enum ClientEvents {
      * This event indicates that a new message have arrived.
      * @since 1.0
      */
-    NEW_MESSAGE
+    NEW_MESSAGE,
+    /**
+     * The RSA client has disconnected from the server.
+     * @since 1.0
+     */
+    LOGOUT
 }

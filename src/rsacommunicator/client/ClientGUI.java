@@ -30,23 +30,33 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
+import rsacommunicator.messages.Logout;
+import rsacommunicator.messages.PlainMessage;
 
 /**
+ * GUI interface for the RSA client.
+ *
+ * <p>
+ * This class do not contains any functionally related to RSA, all RSA logic is
+ * provided by the {@link RSAClient}.
+ * </p>
  *
  * @author Victor de Lima Soares
  * @version 1.0
  */
 public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListener {
 
+    /**
+     * RSA client.
+     */
     private final RSAClient client;
 
     /**
-     * Creates new form ClientGUI.
+     * Creates new form ClientGUI and initializes the RSA client.
      *
      * @since 1.0
      * @throws java.io.IOException
@@ -62,6 +72,120 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
      * @since 1.0
      */
     private User destination;
+
+    /**
+     * Events processor method.
+     * <p>
+     * Method called when a event is fired from the RSA client.
+     * </p>
+     * <p>
+     * The RSA client will communicate with the GUI through events.
+     * </p>
+     *
+     * @since 1.0
+     * @param evt Property change event.
+     */
+    @Override
+    public void propertyChange(PropertyChangeEvent evt) {
+        switch (rsacommunicator.client.ClientEvents.valueOf(evt.getPropertyName())) {
+            case USER_UPDATE:
+                updateUsers((Map<String, User>) evt.getNewValue());
+                break;
+            case NEW_MESSAGE:
+                newMessage((PlainMessage) evt.getNewValue());
+                break;
+            case LOGOUT:
+                process((Logout) evt.getNewValue());
+        }
+    }
+
+    /**
+     * Updates the user tree view.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    private void updateUsers(Map<String, User> usersMap) {
+
+        DefaultTreeModel model = (DefaultTreeModel) users.getModel();
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
+
+        root.removeAllChildren(); //this removes all nodes
+        model.reload(); //this notifies the listeners and changes the GUI
+
+        usersMap.values().stream().forEach((User user) -> {
+            DefaultMutableTreeNode userNode = new DefaultMutableTreeNode(user);
+            model.insertNodeInto(userNode, root, root.getChildCount());
+
+            if (user.getKey() != null) {
+                model.insertNodeInto(new DefaultMutableTreeNode("Sym Key"), userNode, 0);
+            }
+            if (user.getPublicKeyPair() != null) {
+                model.insertNodeInto(new DefaultMutableTreeNode("Pub Key"), userNode, Math.min(1, userNode.getChildCount()));
+            }
+        });
+    }
+
+    /**
+     * Writes new messages on the received messages area.
+     *
+     * @since 1.0
+     * @param message
+     */
+    public void newMessage(PlainMessage message) {
+        incomingTextArea.append(message + "\n");
+    }
+
+    /**
+     * Actions to be taken when a logout instruction comes form the server.
+     *
+     * @since 1.0
+     * @param msg
+     */
+    private void process(Logout msg) {
+        enableLogin(true);
+    }
+
+    /**
+     * Enables or disables the message to send area.
+     *
+     * @since 1.0
+     * @param enable
+     */
+    private void enableMessages(boolean enable) {
+        outcomingTextArea.setEnabled(enable);
+    }
+
+    /**
+     * Adjusts GUI interface after for login/logout.
+     *
+     * @since 1.0
+     * @param enable Indicates if the GUI shout prepare for a login.
+     */
+    private void enableLogin(boolean enable) {
+        enableMessages(!enable);
+        sendButton.setEnabled(!enable);
+        if (enable) {
+            cleanTreeView();
+            loginButton.setText("Login");
+        } else {
+            loginButton.setText("Logout");
+        }
+        userTextField.setEnabled(enable);
+    }
+
+    /**
+     * Cleans the user tree view.
+     *
+     * @since 1.0
+     */
+    private void cleanTreeView() {
+        DefaultTreeModel model = (DefaultTreeModel) users.getModel();
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
+
+        root.removeAllChildren(); //this removes all nodes
+        model.reload(); //this notifies the listeners and changes the GUI
+    }
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -91,6 +215,11 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("RSA Communicator");
         setMinimumSize(new java.awt.Dimension(880, 480));
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosing(java.awt.event.WindowEvent evt) {
+                formWindowClosing(evt);
+            }
+        });
         getContentPane().setLayout(new java.awt.GridBagLayout());
 
         jPanel1.setPreferredSize(new java.awt.Dimension(200, 100));
@@ -129,11 +258,6 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
         userTextField.setText("User");
         userTextField.setMinimumSize(new java.awt.Dimension(0, 0));
         userTextField.setPreferredSize(new java.awt.Dimension(60, 10));
-        userTextField.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                userTextFieldActionPerformed(evt);
-            }
-        });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 2;
@@ -232,9 +356,14 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
 
     private void sendButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sendButtonActionPerformed
         try {
-
+            if (destination == client.BROADCAST) {
+                client.sendPlainMessage(destination.getName(), outcomingTextArea.getText());
+            } else {
+                client.sendSYMMessage(destination.getName(), outcomingTextArea.getText());
+            }
             outcomingTextArea.setText("");
             outcomingPane.requestFocus();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -246,14 +375,11 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
             client.connect();
             client.login(userTextField.getText());
             enableMessages(true);
+            enableLogin(false);
         } catch (IOException ex) {
             Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_loginButtonActionPerformed
-
-    private void userTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_userTextFieldActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_userTextFieldActionPerformed
 
     private void usersValueChanged(javax.swing.event.TreeSelectionEvent evt) {//GEN-FIRST:event_usersValueChanged
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) users.getLastSelectedPathComponent();
@@ -266,7 +392,7 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
             destination = null;
             return;
         }
-        
+
         if (node.isLeaf()) {
             node = (DefaultMutableTreeNode) node.getParent();
         }
@@ -284,6 +410,16 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
             sendButton.setToolTipText("Send message to: " + destination.getName());
         }
     }//GEN-LAST:event_usersValueChanged
+
+    private void formWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosing
+        try {
+            if (client.isConnected()) {
+                client.logout(true);
+            }
+        } catch (Exception ex) {
+            Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_formWindowClosing
 
     /**
      * @param args the command line arguments
@@ -343,64 +479,4 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
     private javax.swing.JScrollPane usersPane;
     // End of variables declaration//GEN-END:variables
 
-    /**
-     * Events processor method.
-     * <p>
-     * Method called when a event is fired from the RSA client.
-     * </p>
-     * <p>
-     * The RSA client will communicate with the GUI through events.
-     * </p>
-     *
-     * @since 1.0
-     * @param evt Property change event.
-     */
-    @Override
-    public void propertyChange(PropertyChangeEvent evt) {
-        switch (rsacommunicator.client.ClientEvents.valueOf(evt.getPropertyName())) {
-            case USER_UPDATE:
-                updateUsers((Map<String, User>) evt.getNewValue());
-        }
-    }
-
-    /**
-     * Updates the user tree view.
-     *
-     * @since 1.0
-     * @param msg
-     */
-    private void updateUsers(Map<String, User> usersMap) {
-
-        DefaultTreeModel model = (DefaultTreeModel) users.getModel();
-        DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
-
-        root.removeAllChildren(); //this removes all nodes
-        model.reload(); //this notifies the listeners and changes the GUI
-
-        usersMap.values().stream().forEach(new Consumer<User>() {
-
-            public void accept(User user) {
-
-                DefaultMutableTreeNode userNode = new DefaultMutableTreeNode(user);
-                model.insertNodeInto(userNode, root, root.getChildCount());
-
-                if (user.getKey() != null) {
-                    model.insertNodeInto(new DefaultMutableTreeNode("Sym Key"), userNode, 0);
-                }
-                if (user.getPublicKeyPair() != null) {
-                    model.insertNodeInto(new DefaultMutableTreeNode("Pub Key"), userNode, Math.min(1, userNode.getChildCount()));
-                }
-            }
-
-        });
-    }
-
-    public void newMessage(String message) {
-        incomingTextArea.append(message + "\n");
-    }
-
-    private void enableMessages(boolean enable) {
-        outcomingTextArea.setEnabled(enable);
-        sendButton.setEnabled(enable);
-    }
 }

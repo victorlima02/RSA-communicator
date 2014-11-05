@@ -38,7 +38,7 @@ import rsacommunicator.messages.Message;
 
 /**
  * Communicator Client - server side.
- * 
+ *
  * <p>
  * This class manages all functionality attributed to users on the server side.
  * </p>
@@ -49,13 +49,13 @@ import rsacommunicator.messages.Message;
  * <li>Initializing communication channels with the user;</li>
  * <li>Manipulating the channels and marking communication packages.</li>
  * </ul>
- * 
+ *
  * <h3>Those responsibilities are shared with:</h3>
  * <ul>
  * <li>{@link UserCollector};</li>
  * <li>{@link MessageReader}.</li>
  * </ul>
- * 
+ *
  * @author Victor de Lima Soares
  * @version 1.0
  */
@@ -95,8 +95,8 @@ public class Client implements Comparable<Client>, AutoCloseable {
         this.socket = socket;
         out = new ObjectOutputStream(socket.getOutputStream());
         this.server = server;
-        
-        receiver = new MessageReader(this,socket.getInputStream());
+
+        receiver = new MessageReader(this, socket.getInputStream());
         receiver.addPropertyChangeListener(server);
         receiver.startReader();
 
@@ -225,6 +225,25 @@ public class Client implements Comparable<Client>, AutoCloseable {
         return userColeCollector;
     }
 
+    /**
+     * Converts this client into a User.
+     * 
+     * <p>
+     * This make possible to send information about connected clients to RSA
+     * clients.
+     * </p>
+     * 
+     * @since 1.0
+     * @return new User.
+     * 
+     * @see User.
+     */
+    public User toClientUser() {
+        User clientUser = new User(name);
+        clientUser.setPublicKey(publicKeyPair);
+        return clientUser;
+    }
+
     @Override
     public int compareTo(Client o) {
         if (o == this) {
@@ -232,7 +251,7 @@ public class Client implements Comparable<Client>, AutoCloseable {
         }
         return this.name.compareTo(o.name);
     }
-    
+
     @Override
     public int hashCode() {
         return name.hashCode();
@@ -249,9 +268,4 @@ public class Client implements Comparable<Client>, AutoCloseable {
         return this.name.equals(((Client) obj).name);
     }
 
-    public User toClientUser(){
-        User clientUser = new rsacommunicator.client.User(name);
-        clientUser.setPublicKey(publicKeyPair);
-        return clientUser;
-    }
 }

@@ -115,6 +115,10 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      * <p>
      * The message receiver will communicate with the server through events.
      * </p>
+     * <p>
+     * This method verifies if user in the channel has not sent a message as
+     * another user.
+     * </p>
      *
      * @since 1.0
      * @param evt Property change event.
@@ -123,37 +127,44 @@ public class RSAServer implements Runnable, PropertyChangeListener {
     public void propertyChange(PropertyChangeEvent evt) {
 
         try {
+            //Verifies if user in the channel has not send a message as other user.
             Message msg = (Message) evt.getNewValue();
+            String sourceField = msg.getSource();
+            String channelOwner = ((User) evt.getSource()).getName();
 
-            switch (msg.getType()) {
-                case LOGIN:
-                    process((Client) evt.getSource(), (Login) msg);
-                    break;
-                case LOGOUT:
-                    process((Logout) msg);
-                    break;
-                case KEY:
-                    process((Key) msg);
-                    break;
-                case PLAIN_MSG:
-                    process((PlainMessage) msg);
-                    break;
-                case PUB_KEY:
-                    process((PublicKey) msg);
-                    break;
-                case RSA_MSG:
-                    process((RSAMessage) msg);
-                    break;
-                case SYM_MSG: {
-                    try {
-                        process((SymmetricMessage) msg);
-                    } catch (IOException ex) {
-                        Logger.getLogger(RSAClient.class.getName()).log(Level.SEVERE, null, ex);
+            if (channelOwner.equals(sourceField)) {
+                switch (msg.getType()) {
+                    case LOGIN:
+                        process((Client) evt.getSource(), (Login) msg);
+                        break;
+                    case LOGOUT:
+                        process((Logout) msg);
+                        break;
+                    case KEY:
+                        process((Key) msg);
+                        break;
+                    case PLAIN_MSG:
+                        process((PlainMessage) msg);
+                        break;
+                    case PUB_KEY:
+                        process((PublicKey) msg);
+                        break;
+                    case RSA_MSG:
+                        process((RSAMessage) msg);
+                        break;
+                    case SYM_MSG: {
+                        try {
+                            process((SymmetricMessage) msg);
+                        } catch (IOException ex) {
+                            Logger.getLogger(RSAClient.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                     }
+                    break;
                 }
-                break;
             }
         } catch (IOException ex) {
+            Logger.getLogger(RSAServer.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (Exception ex) {
             Logger.getLogger(RSAServer.class.getName()).log(Level.SEVERE, null, ex);
         }
 
@@ -170,8 +181,10 @@ public class RSAServer implements Runnable, PropertyChangeListener {
     }
 
     /**
+     * Run server as an independent program.
+     * 
      * @param args the command line arguments
-     * @throws java.io.IOException
+     * @throws IOException
      */
     public static void main(String[] args) throws IOException {
         RSAServer server = new RSAServer();
@@ -211,10 +224,12 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      *
      * @since 1.0
      * @param msg
+     * @throws IOException
+     * @throws Exception
      */
-    public void process(Logout msg) throws IOException {
-        usersConnected.remove(msg.getSource());
-        bradcast(new Logout(msg.getSource()));
+    public void process(Logout msg) throws IOException, Exception {
+        usersConnected.get(msg.getSource()).close();
+        bradcast(new Logout(Destination.SERVER.name(), msg.getSource()));
     }
 
     /**
@@ -222,6 +237,7 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      *
      * @since 1.0
      * @param msg
+     * @throws IOException
      */
     public void process(Key msg) throws IOException {
         relay(msg);
@@ -232,6 +248,7 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      *
      * @since 1.0
      * @param msg
+     * @throws IOException
      */
     public void process(PublicKey msg) throws IOException {
         usersConnected.get(msg.getSource()).setPublicKeyPair(msg.getMessage());
@@ -243,6 +260,7 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      *
      * @since 1.0
      * @param msg
+     * @throws IOException
      */
     public void process(PlainMessage msg) throws IOException {
         relay(msg);
@@ -253,6 +271,7 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      *
      * @since 1.0
      * @param msg
+     * @throws java.io.IOException
      */
     public void process(RSAMessage msg) throws IOException {
         relay(msg);
@@ -263,6 +282,7 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      *
      * @since 1.0
      * @param msg
+     * @throws java.io.IOException
      */
     public void process(SymmetricMessage msg) throws IOException {
         relay(msg);
@@ -283,11 +303,17 @@ public class RSAServer implements Runnable, PropertyChangeListener {
         usersConnected.get(msg.getDestination()).sendMessage(msg);
     }
 
+    /**
+     * Create a map with users information to forward to clients.
+     *
+     * @since 1.0
+     * @return User map.
+     */
     public TreeMap<String, User> getClientUsersMap() {
-        TreeMap<String, User> clients = new TreeMap<String, User>();
-        for (Client user : usersConnected.values()) {
+        TreeMap<String, User> clients = new TreeMap<>();
+        usersConnected.values().stream().forEach((user) -> {
             clients.put(user.getName(), user.toClientUser());
-        }
+        });
         return clients;
     }
 }

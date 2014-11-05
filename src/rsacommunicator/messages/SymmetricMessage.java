@@ -26,7 +26,6 @@
  */
 package rsacommunicator.messages;
 
-import crypto.util.BitBuffer;
 
 /**
  * Message encrypted with DES - using session keys.
@@ -37,7 +36,7 @@ import crypto.util.BitBuffer;
 public class SymmetricMessage extends Message<byte[]> {
 
     public SymmetricMessage(String source,String destination,byte[] message) {
-        super(source,destination,Type.PUB_KEY, message);
+        super(source,destination,Type.SYM_MSG, message);
     }
 
 }

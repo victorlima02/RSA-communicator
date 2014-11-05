@@ -39,6 +39,7 @@ import java.io.InputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.net.Socket;
+import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.logging.Level;
@@ -62,7 +63,7 @@ import rsacommunicator.server.RSAServer;
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class RSAClient implements PropertyChangeListener {
+public class RSAClient implements PropertyChangeListener, AutoCloseable {
 
     /**
      * User name.
@@ -129,17 +130,17 @@ public class RSAClient implements PropertyChangeListener {
      * @since 1.0
      */
     private final Map<String, User> users = new TreeMap<>();
-    
+
     /**
      * User for broadcasts.
-     * 
+     *
      * @since 1.0
      */
     public final User BROADCAST = new User(Destination.BROADCAST.name());
-    
+
     /**
      * User for server communication.
-     * 
+     *
      * @since 1.0
      */
     public final User SERVER = new User(Destination.SERVER.name());
@@ -196,6 +197,27 @@ public class RSAClient implements PropertyChangeListener {
     }
 
     /**
+     * Logout from the server.
+     *
+     * @since 1.0
+     * @param notifyServer If needs to send a LOGOUT message to the server. (if
+     * the LOGOUT request came from the server this will not be necessary).
+     *
+     * @throws IOException
+     * @throws Exception
+     */
+    public void logout(boolean notifyServer) throws IOException, Exception {
+        Message logout = new Logout(name, name);
+
+        if (notifyServer) {
+            sendMessage(logout);
+        }
+
+        close();
+        pcs.firePropertyChange(ClientEvents.LOGOUT.name(), null, logout);
+    }
+
+    /**
      * Sends the message.
      *
      * @since 1.0
@@ -237,9 +259,14 @@ public class RSAClient implements PropertyChangeListener {
             case LOGIN:
                 process((Login) msg);
                 break;
-            case LOGOUT:
-                process((Logout) msg);
-                break;
+            case LOGOUT: {
+                try {
+                    process((Logout) msg);
+                } catch (Exception ex) {
+                    Logger.getLogger(RSAClient.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            break;
             case USER_LIST:
                 process((UserList) msg);
                 break;
@@ -295,9 +322,15 @@ public class RSAClient implements PropertyChangeListener {
      * @since 1.0
      * @param msg
      */
-    public void process(Logout msg) {
+    public void process(Logout msg) throws IOException, Exception {
         users.remove(msg.getMessage());
-        pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
+        if (!msg.getMessage().equals(name)) {
+            pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
+        } else {
+            if (msg.getSource().equals(Destination.SERVER.name())) {
+                logout(false);
+            }
+        }
     }
 
     /**
@@ -320,7 +353,13 @@ public class RSAClient implements PropertyChangeListener {
      * @param msg
      */
     public void process(Key msg) {
-        users.get(msg.getSource()).setKey(msg.getMessage());
+        BigInteger msgEncrypted = msg.getMessage();
+
+        byte[] key = new byte[DES.BLOCK_SIZE / Byte.SIZE];
+        byte[] msgKey = rsa.decrypt(msgEncrypted).toByteArray();
+        System.arraycopy(msgKey, 0, key, 0, msgKey.length);
+
+        users.get(msg.getSource()).setKey(key);
         pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
     }
 
@@ -331,18 +370,9 @@ public class RSAClient implements PropertyChangeListener {
      * @param msg
      */
     public void process(PublicKey msg) {
+
         users.get(msg.getSource()).setPublicKey(msg.getMessage());
         pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
-    }
-
-    /**
-     * Send a PUB_KEY message.
-     *
-     * @since 1.0
-     * @param msg
-     */
-    public void sendPublicKeyMessage() throws IOException {
-        sendMessage(new PublicKey(name, Destination.SERVER.name(), rsa.getPublicKeyPair()));
     }
 
     /**
@@ -365,7 +395,7 @@ public class RSAClient implements PropertyChangeListener {
 
         BigInteger msgEncrypted = msg.getMessage();
 
-        String plainText = rsa.decrypt(msgEncrypted);
+        String plainText = RSA.BigIntegerToString(rsa.decrypt(msgEncrypted));
 
         pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, new PlainMessage(msg.getSource(), msg.getDestination(), plainText));
     }
@@ -414,14 +444,37 @@ public class RSAClient implements PropertyChangeListener {
      */
     public void sendRSAMessage(PlainMessage msg) throws IOException {
 
-        User source = users.get(msg.getSource());
+        User destination = users.get(msg.getDestination());
 
         String plainText = msg.getMessage();
 
-        BigInteger cipherText = RSA.encrypt(source.getPublicKeyPair(), plainText);
+        BigInteger cipherText = RSA.encrypt(destination.getPublicKeyPair(), plainText);
 
-        sendMessage(new RSAMessage(name, msg.getSource(), cipherText));
+        sendMessage(new RSAMessage(name, msg.getDestination(), cipherText));
         pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, new PlainMessage(msg.getSource(), msg.getDestination(), plainText));
+    }
+
+    /**
+     * Send a PUB_KEY message.
+     *
+     * @since 1.0
+     * @throws IOException
+     */
+    public void sendPublicKeyMessage() throws IOException {
+        sendMessage(new PublicKey(name, Destination.SERVER.name(), rsa.getPublicKeyPair()));
+    }
+
+    /**
+     * Sends a PLAIN_MSG message.
+     *
+     * @since 1.0
+     * @param destine
+     * @param message
+     * @throws IOException
+     */
+    public void sendPlainMessage(String destine, String message) throws IOException {
+        PlainMessage msg = new PlainMessage(name, destine, message);
+        sendMessage(msg);
     }
 
     /**
@@ -430,7 +483,7 @@ public class RSAClient implements PropertyChangeListener {
      * @since 1.0
      * @param destine
      * @param message
-     * @throws java.io.IOException
+     * @throws IOException
      */
     public void sendSYMMessage(String destine, String message) throws IOException {
         PlainMessage msg = new PlainMessage(name, destine, message);
@@ -445,17 +498,72 @@ public class RSAClient implements PropertyChangeListener {
      */
     public void sendSYMMessage(PlainMessage msg) throws IOException {
 
-        User source = users.get(msg.getSource());
+        User destination = users.get(msg.getDestination());
+
+        if (destination.getKey() == null) {
+            shareKey(destination);
+        }
+
         byte[] cipherText;
 
         try (InputStream msgEncrypted = new ByteArrayInputStream(msg.getMessage().getBytes(RSAServer.CHARSET));
                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
 
-            des.encrypt(msgEncrypted, source.getKey(), output);
+            des.encrypt(msgEncrypted, destination.getKey(), output);
             cipherText = output.toByteArray();
+            sendMessage(new SymmetricMessage(name, msg.getDestination(), cipherText));
+            pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, msg);
         }
-        sendMessage(new SymmetricMessage(name, msg.getSource(), cipherText));
-        pcs.firePropertyChange(ClientEvents.NEW_MESSAGE.name(), null, msg);
+
+    }
+
+    /**
+     * Generates a session key and send the the destination user.
+     *
+     * @since 1.0
+     * @param destination
+     * @throws IOException
+     */
+    public void shareKey(User destination) throws IOException {
+        try {
+            byte[] newKey = DES.genkey(true);
+
+            destination.setKey(newKey);
+
+            BigInteger encryptedKey = RSA.encrypt(destination.getPublicKeyPair(), newKey);
+            sendMessage(new Key(name, destination.getName(), encryptedKey));
+
+            pcs.firePropertyChange(ClientEvents.USER_UPDATE.name(), null, getUsers());
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(RSAClient.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    /**
+     * Verify if the client is connected to the server.
+     *
+     * @since 1.0
+     * @return
+     * <ul>
+     * <li>true: if the client is connected;</li>
+     * <li>false: otherwise.</li>
+     * </ul>
+     */
+    boolean isConnected() {
+        return socket.isConnected();
+    }
+
+    /**
+     * Close resources.
+     *
+     * @since 1.0
+     * @throws Exception
+     */
+    @Override
+    public void close() throws Exception {
+        out.close();
+        receiver.close();
+        socket.close();
     }
 
 }

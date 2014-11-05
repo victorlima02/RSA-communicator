@@ -49,7 +49,7 @@ public abstract class Message<M extends Serializable> implements Serializable {
      * @since 1.0
      */
     private final String source;
-    
+
     /**
      * A string identifying the destination for this message.
      *
@@ -83,7 +83,7 @@ public abstract class Message<M extends Serializable> implements Serializable {
      * @param type
      * @param message
      */
-    public Message(String source,String destination,Type type, M message) {
+    public Message(String source, String destination, Type type, M message) {
         this.type = type;
         this.message = message;
         this.source = source;
@@ -137,6 +137,11 @@ public abstract class Message<M extends Serializable> implements Serializable {
      */
     public String getSource() {
         return source;
+    }
+
+    @Override
+    public String toString() {
+        return source + " -> " + destination + ": " + message;
     }
 
 }

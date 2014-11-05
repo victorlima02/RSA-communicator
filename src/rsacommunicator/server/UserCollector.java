@@ -32,6 +32,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import rsacommunicator.messages.Destination;
+import rsacommunicator.messages.Logout;
 
 /**
  * Client collector: to clean unused users after timeout.
@@ -95,12 +97,13 @@ public class UserCollector {
      * @since 1.0
      */
     private final Runnable DeleteNotConnected = new Runnable() {
-
+        
         @Override
         public void run() {
             synchronized (user) {
                 if (!user.isConnected()) {
                     try {
+                        user.sendMessage(new Logout(Destination.SERVER.name(), user.getName()));
                         user.close();
                     } catch (Exception ex) {
                         Logger.getLogger(UserCollector.class.getName()).log(Level.SEVERE, null, ex);
@@ -116,7 +119,7 @@ public class UserCollector {
      * @since 1.0
      */
     private final Runnable Delete = new Runnable() {
-
+        
         @Override
         public void run() {
             synchronized (user) {
@@ -142,13 +145,13 @@ public class UserCollector {
             }
         }
     }
-    
+
     /**
      * Cancel all tasks.
-     * 
+     *
      * @since 1.0
      */
-    public void cancelTasks(){
+    public void cancelTasks() {
         futureDelete.cancel(true);
     }
 }

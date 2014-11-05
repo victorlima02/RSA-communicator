@@ -24,18 +24,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package rsacommunicator.messages;
+
+import java.io.IOException;
+import rsacommunicator.client.ClientGUI;
+import rsacommunicator.server.RSAServer;
 
 /**
- * Request to logout.
  *
  * @author Victor de Lima Soares
  * @version 1.0
  */
-public class Logout extends Message<String> {
-
-    public Logout(String source, String userName) {
-        super(source, Destination.BROADCAST.name(), Type.LOGIN, userName.trim());
+public class Demos {
+    public static void main(String[] args) throws IOException {
+        Thread server = new Thread(new RSAServer());        
+        server.start();
+        
+        ClientGUI.main(args);
+        ClientGUI.main(args);
     }
-
 }

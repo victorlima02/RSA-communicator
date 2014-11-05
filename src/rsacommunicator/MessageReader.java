@@ -43,11 +43,18 @@ import rsacommunicator.server.Client;
 /**
  * Message reader.
  *
+ * <p>
+ * With the channel created by opening a socket, this class will create two
+ * treads; one will, constantly, read from the channel and put the deserialized
+ * messages on a queue, while the second notifies subscribes and forwards the
+ * messages for further processing, including decryption.
+ * </p>
+ *
  * @author Victor de Lima Soares
  * @version 1.0
  */
 public class MessageReader implements Runnable, AutoCloseable {
-    
+
     private final BlockingQueue<Message> messages = new LinkedBlockingQueue();
     private final ObjectInputStream source;
     private final PropertyChangeSupport pcs;
@@ -123,12 +130,16 @@ public class MessageReader implements Runnable, AutoCloseable {
     @Override
     public void run() {
         startsEmissary();
+
         while (true) {
             if (CLOSING == true) {
                 break;
             }
+
             try {
+
                 readInput();
+
             } catch (IOException ex) {
                 try {
                     close();
@@ -152,10 +163,11 @@ public class MessageReader implements Runnable, AutoCloseable {
      */
     private void readInput() throws IOException {
         try {
-            
+
             Message message = (Message) source.readObject();
             messages.put(message);
             setLastMessage(LocalDateTime.now());
+
         } catch (IOException | InterruptedException | ClassNotFoundException ex) {
             throw new IOException("Input error.", ex);
         }
@@ -173,26 +185,26 @@ public class MessageReader implements Runnable, AutoCloseable {
      */
     public void startsEmissary() {
         Runnable emissary = new Runnable() {
-            
+
             @Override
             public void run() {
                 while (true) {
                     try {
-                        
+
                         Message message = messages.take();
                         pcs.firePropertyChange(message.getType().name(), null, message);
-                        
+
                     } catch (InterruptedException ex) {
                         Logger.getLogger(MessageReader.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    
+
                     if (CLOSING == true && messages.isEmpty()) {
                         break;
                     }
                 }
             }
         };
-        
+
         Thread emissaryThread = new Thread(emissary);
         emissaryThread.start();
     }
@@ -251,5 +263,5 @@ public class MessageReader implements Runnable, AutoCloseable {
         source.close();
         CLOSING = true;
     }
-    
+
 }
