@@ -36,6 +36,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 import rsacommunicator.messages.Logout;
 import rsacommunicator.messages.PlainMessage;
+import rsacommunicator.server.RSAServer;
 
 /**
  * GUI interface for the RSA client.
@@ -44,9 +45,21 @@ import rsacommunicator.messages.PlainMessage;
  * This class do not contains any functionally related to RSA, all RSA logic is
  * provided by the {@link RSAClient}.
  * </p>
+ * <p>
+ * A list of users connected is provided along with a message area and a text
+ * field to send messages.
+ * </p>
+ * <p>
+ * To send a message, click on the user you want to communicate with over the list
+ * on the right - loaded after logging in.
+ * </p>
  *
  * @author Victor de Lima Soares
  * @version 1.0
+ *
+ * @see RSAClient
+ * @see RSAServer
+ * @see ClientEvents
  */
 public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListener {
 
@@ -124,6 +137,10 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
                 model.insertNodeInto(new DefaultMutableTreeNode("Pub Key"), userNode, Math.min(1, userNode.getChildCount()));
             }
         });
+
+        for (int i = 0; i < users.getRowCount(); i++) {
+            users.expandRow(i);
+        }
     }
 
     /**
@@ -164,7 +181,7 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
      */
     private void enableLogin(boolean enable) {
         enableMessages(!enable);
-        sendButton.setEnabled(!enable);
+        sendButton.setEnabled(false);
         if (enable) {
             cleanTreeView();
             loginButton.setText("Login");
@@ -215,6 +232,7 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setTitle("RSA Communicator");
         setMinimumSize(new java.awt.Dimension(880, 480));
+        setPreferredSize(new java.awt.Dimension(1053, 384));
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
                 formWindowClosing(evt);
@@ -255,7 +273,7 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
         gridBagConstraints.weighty = 1.0;
         jPanel1.add(usersPane, gridBagConstraints);
 
-        userTextField.setText("User");
+        userTextField.setText("User"+((int)(Math.random()*9999)));
         userTextField.setMinimumSize(new java.awt.Dimension(0, 0));
         userTextField.setPreferredSize(new java.awt.Dimension(60, 10));
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -293,8 +311,10 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
 
         incomingPane.setPreferredSize(new java.awt.Dimension(250, 300));
 
+        incomingTextArea.setEditable(false);
         incomingTextArea.setColumns(20);
         incomingTextArea.setRows(5);
+        incomingTextArea.setText("To send a message, click on the user you want to communicate with over the list on the right - loaded after logging in. \nDocumentation about how the software works and the steps taken is available as Javadoc for the RSAClient (rsacommunicator.client.RSAClient).");
         incomingTextArea.setPreferredSize(new java.awt.Dimension(232, 300));
         incomingPane.setViewportView(incomingTextArea);
 
@@ -372,11 +392,14 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
 
     private void loginButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_loginButtonActionPerformed
         try {
-            client.connect();
-            client.login(userTextField.getText());
-            enableMessages(true);
-            enableLogin(false);
-        } catch (IOException ex) {
+            if (!client.isConnected()) {
+                client.login(userTextField.getText());
+                enableMessages(true);
+                enableLogin(false);
+            } else {
+                client.logout(true);
+            }
+        } catch (Exception ex) {
             Logger.getLogger(ClientGUI.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_loginButtonActionPerformed
@@ -384,8 +407,8 @@ public class ClientGUI extends javax.swing.JFrame implements PropertyChangeListe
     private void usersValueChanged(javax.swing.event.TreeSelectionEvent evt) {//GEN-FIRST:event_usersValueChanged
         DefaultMutableTreeNode node = (DefaultMutableTreeNode) users.getLastSelectedPathComponent();
 
-        if (node == null) //Nothing is selected.  
-        {
+        if (node == null || (node.isRoot() && node.getChildCount() == 0)) {
+            //Nothing is selected. 
             sendButton.setEnabled(false);
             sendButton.setText("None");
             sendButton.setToolTipText("No user selected.");

@@ -35,7 +35,7 @@ package rsacommunicator.messages;
 public class Logout extends Message<String> {
 
     public Logout(String source, String userName) {
-        super(source, Destination.BROADCAST.name(), Type.LOGIN, userName.trim());
+        super(source, Destination.BROADCAST.name(), Type.LOGOUT, userName.trim());
     }
 
 }

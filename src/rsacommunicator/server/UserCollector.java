@@ -124,6 +124,7 @@ public class UserCollector {
         public void run() {
             synchronized (user) {
                 try {
+                    user.sendMessage(new Logout(Destination.SERVER.name(), user.getName()));
                     user.close();
                 } catch (Exception ex) {
                     Logger.getLogger(UserCollector.class.getName()).log(Level.SEVERE, null, ex);

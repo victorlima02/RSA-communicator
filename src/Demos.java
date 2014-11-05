@@ -24,21 +24,36 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 import java.io.IOException;
 import rsacommunicator.client.ClientGUI;
+import rsacommunicator.client.RSAClient;
 import rsacommunicator.server.RSAServer;
 
 /**
+ * RSA communicator demonstration program.
+ *
+ * <p>
+ * This is just a demonstration class for details about implementation follow
+ * {@link RSAClient}.
+ * </p>
+ * 
+ * <p>
+ * This demonstration will open two clients and one server.
+ * </p>
  *
  * @author Victor de Lima Soares
  * @version 1.0
+ *
+ * @see RSAClient
+ * @see ClientGUI
+ * @see RSAServer
  */
 public class Demos {
+
     public static void main(String[] args) throws IOException {
-        Thread server = new Thread(new RSAServer());        
+        Thread server = new Thread(new RSAServer());
         server.start();
-        
+
         ClientGUI.main(args);
         ClientGUI.main(args);
     }

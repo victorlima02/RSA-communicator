@@ -29,7 +29,8 @@
 package rsacommunicator.messages;
 
 /**
- *
+ * Message not encrypted.
+ * 
  * @author Victor de Lima Soares
  * @version 1.0
  */

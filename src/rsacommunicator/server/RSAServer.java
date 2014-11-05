@@ -130,9 +130,9 @@ public class RSAServer implements Runnable, PropertyChangeListener {
             //Verifies if user in the channel has not send a message as other user.
             Message msg = (Message) evt.getNewValue();
             String sourceField = msg.getSource();
-            String channelOwner = ((User) evt.getSource()).getName();
+            String channelOwner = ((Client) evt.getSource()).getName();
 
-            if (channelOwner.equals(sourceField)) {
+            if ((channelOwner == null && msg.getType() == Type.LOGIN) || (channelOwner != null && channelOwner.equals(sourceField))) {
                 switch (msg.getType()) {
                     case LOGIN:
                         process((Client) evt.getSource(), (Login) msg);
@@ -182,7 +182,7 @@ public class RSAServer implements Runnable, PropertyChangeListener {
 
     /**
      * Run server as an independent program.
-     * 
+     *
      * @param args the command line arguments
      * @throws IOException
      */
@@ -201,7 +201,7 @@ public class RSAServer implements Runnable, PropertyChangeListener {
      * @param msg
      * @throws IOException
      */
-    public void process(Client user, Login msg) throws IOException {
+    public void process(Client user, Login msg) throws IOException, Exception {
 
         synchronized (user) {
             String userName = msg.getMessage();
@@ -211,6 +211,9 @@ public class RSAServer implements Runnable, PropertyChangeListener {
                 user.setConnected(true);
                 usersConnected.put(userName, user);
                 bradcast(new Login(userName));
+            } else {
+                user.sendMessage(new Logout(Destination.SERVER.name(), userName));
+                user.close();
             }
         }
 

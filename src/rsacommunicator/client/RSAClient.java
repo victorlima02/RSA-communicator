@@ -54,14 +54,62 @@ import rsacommunicator.messages.PlainMessage;
 import rsacommunicator.messages.PublicKey;
 import rsacommunicator.messages.RSAMessage;
 import rsacommunicator.messages.SymmetricMessage;
+import rsacommunicator.messages.Type;
 import rsacommunicator.messages.UserList;
 import rsacommunicator.server.RSAServer;
 
 /**
  * The RSA communicator client.
  *
+ * <p>
+ * This is the client part of a network based client-server RSA(schoolbook)
+ * communicator.
+ * </p>
+ *
+ * <h3>Steps for communication:</h3>
+ * <ul>
+ *
+ * <li>Connect to the server through sockets;</li>
+ *
+ * <li>Send a login request with the username to be used for communication;</li>
+ * <li>Every user has a unique name(username) that is used for message
+ * routing;</li>
+ * <li>That server will verify and allow the connection or send a LOGOUT
+ * message;</li>
+ *
+ * <li>Once logged in, the server will send a list of all users and their public
+ * keys(if a new user connects, its public key is forwarded to all connect
+ * users);</li>
+ *
+ * <li>To send a message, the first user uses the destination's public key to
+ * encrypted a new session key for the symmetric cipher - used after this step
+ * for all communication between those two parts (for each communication link a
+ * symmetric key is generated);</li>
+ * <li>Symmetrically encrypted messages will use DES;</li>
+ *
+ * <li>After their finish, users can send a LOGOUT message and the server will
+ * distribute the action to all users connected to it and close the
+ * channel;</li>
+ * <li>All messages sent before logging out are delivered;</li>
+ * </ul>
+ *
+ * <p>
+ * Messages are formated as the protocol described by {@link Type}.
+ * </p>
+ *
+ * <p>
+ * This client can connect to other classes, which can subscribe to send and
+ * receive messages trough its public interface and notification system that is
+ * able to fire event described by {@link ClientEvents}
+ * </p>
+ *
  * @author Victor de Lima Soares
  * @version 1.0
+ *
+ * @see RSAServer
+ * @see MessageReader
+ * @see ClientEvents
+ * @see Type
  */
 public class RSAClient implements PropertyChangeListener, AutoCloseable {
 
@@ -174,7 +222,10 @@ public class RSAClient implements PropertyChangeListener, AutoCloseable {
      * @since 1.0
      * @throws IOException
      */
-    public void connect() throws IOException {
+    public void connect() throws IOException, Exception {
+        if (isConnected()) {
+            logout(true);
+        }
         socket = new Socket(IP, PORT);
         out = new ObjectOutputStream(socket.getOutputStream());
         receiver = new MessageReader(socket.getInputStream());
@@ -188,8 +239,10 @@ public class RSAClient implements PropertyChangeListener, AutoCloseable {
      * @since 1.0
      * @param userName
      * @throws IOException
+     * @throws Exception
      */
-    public void login(String userName) throws IOException {
+    public void login(String userName) throws IOException, Exception {
+        connect();
         Message login = new Login(userName);
         sendMessage(login);
         this.name = userName;
@@ -550,7 +603,7 @@ public class RSAClient implements PropertyChangeListener, AutoCloseable {
      * </ul>
      */
     boolean isConnected() {
-        return socket.isConnected();
+        return (socket == null) ? false : !socket.isClosed();
     }
 
     /**
@@ -561,8 +614,8 @@ public class RSAClient implements PropertyChangeListener, AutoCloseable {
      */
     @Override
     public void close() throws Exception {
-        out.close();
         receiver.close();
+        out.close();
         socket.close();
     }
 

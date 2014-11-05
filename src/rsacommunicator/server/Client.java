@@ -149,7 +149,7 @@ public class Client implements Comparable<Client>, AutoCloseable {
      * Update RSA public key.
      *
      * @since 1.0
-     * @param publicKey New public key.
+     * @param publicKeyPair New public key.
      */
     public void setPublicKeyPair(Pair<BigInteger, BigInteger> publicKeyPair) {
         this.publicKeyPair = publicKeyPair;
@@ -169,6 +169,7 @@ public class Client implements Comparable<Client>, AutoCloseable {
             }
 
             userColeCollector.cancelTasks();
+            
             receiver.close();
             out.close();
             socket.close();
@@ -236,7 +237,7 @@ public class Client implements Comparable<Client>, AutoCloseable {
      * @since 1.0
      * @return new User.
      * 
-     * @see User.
+     * @see User
      */
     public User toClientUser() {
         User clientUser = new User(name);

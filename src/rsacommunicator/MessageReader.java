@@ -30,12 +30,14 @@ import rsacommunicator.messages.Message;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.BufferedInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.time.LocalDateTime;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import rsacommunicator.server.Client;
@@ -60,12 +62,15 @@ public class MessageReader implements Runnable, AutoCloseable {
     private final PropertyChangeSupport pcs;
     private final Client responsable;
 
+    private Thread reader;
+    private Thread emissary;
+
     /**
      * Flag to request the threads to stop and die.
      *
      * @since 1.0
      */
-    private Boolean CLOSING = false;
+    private boolean CLOSING = false;
 
     /**
      * Time stamp for the last message.
@@ -77,6 +82,7 @@ public class MessageReader implements Runnable, AutoCloseable {
      *
      * @since 1.0
      * @param source
+     * @param responsable
      * @throws java.io.IOException
      */
     public MessageReader(Client responsable, InputStream source) throws IOException {
@@ -117,7 +123,7 @@ public class MessageReader implements Runnable, AutoCloseable {
      * @see #run()
      */
     public void startReader() {
-        Thread reader = new Thread(this);
+        reader = new Thread(this);
         reader.start();
     }
 
@@ -132,22 +138,16 @@ public class MessageReader implements Runnable, AutoCloseable {
         startsEmissary();
 
         while (true) {
-            if (CLOSING == true) {
-                break;
-            }
-
             try {
 
                 readInput();
 
             } catch (IOException ex) {
                 try {
-                    close();
+                   if(CLOSING = false) close();
                 } catch (Exception ex1) {
                     Logger.getLogger(MessageReader.class.getName()).log(Level.SEVERE, null, ex1);
                 }
-                Logger.getLogger(MessageReader.class.getName()).log(Level.SEVERE, null, ex);
-                throw new RuntimeException("Input failed.", ex);
             }
         }
     }
@@ -168,13 +168,16 @@ public class MessageReader implements Runnable, AutoCloseable {
             messages.put(message);
             setLastMessage(LocalDateTime.now());
 
-        } catch (IOException | InterruptedException | ClassNotFoundException ex) {
+        } catch (EOFException | InterruptedException ex) {
+            //Ignore message.
+        } catch (IOException | ClassNotFoundException ex) {
             throw new IOException("Input error.", ex);
         }
     }
 
     /**
      * Method creates a new thread to manage notifications.
+     *
      * <p>
      * Notification might be heavy, especially, for multiple clients and
      * graphical interfaces. While one thread reads from the source and stores
@@ -184,29 +187,29 @@ public class MessageReader implements Runnable, AutoCloseable {
      * @since 1.0
      */
     public void startsEmissary() {
-        Runnable emissary = new Runnable() {
+        Runnable emissaryTask = new Runnable() {
 
             @Override
             public void run() {
                 while (true) {
                     try {
 
+                        if (CLOSING == true && messages.isEmpty()) {
+                            break;
+                        }
+
                         Message message = messages.take();
                         pcs.firePropertyChange(message.getType().name(), null, message);
 
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(MessageReader.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
-                    if (CLOSING == true && messages.isEmpty()) {
-                        break;
-                    }
                 }
             }
         };
 
-        Thread emissaryThread = new Thread(emissary);
-        emissaryThread.start();
+        emissary = new Thread(emissaryTask);
+        emissary.start();
     }
 
     /**
@@ -260,8 +263,9 @@ public class MessageReader implements Runnable, AutoCloseable {
      */
     @Override
     public void close() throws Exception {
-        source.close();
         CLOSING = true;
+        reader.interrupt();
+        source.close();
     }
 
 }
