@@ -49,7 +49,7 @@ import rsacommunicator.server.RSAServer;
  * @see ClientGUI
  * @see RSAServer
  */
-public class Demos {
+public class Demo {
 
     public static void main(String[] args) throws IOException {
         Thread server = new Thread(new RSAServer());
