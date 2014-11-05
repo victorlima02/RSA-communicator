@@ -36,9 +36,10 @@ import rsacommunicator.server.RSAServer;
  * This is just a demonstration class for details about implementation follow
  * {@link RSAClient}.
  * </p>
- * 
+ *
  * <p>
- * This demonstration will open two clients and one server.
+ * This demonstration will open two clients and one server(port PORT = 4931)
+ * defined on {@link RSAClient} and {@link RSAServer}.
  * </p>
  *
  * @author Victor de Lima Soares
